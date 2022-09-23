@@ -23,7 +23,7 @@ public class UserController {
     @RequestMapping(value ="/login", method=RequestMethod.POST)
     public User Login(@RequestBody User user){
         System.out.println(user.getEmail() + " try to login");
-        System.out.println(user.getPassword());
+
         User isUser = userRepository.findByEmailAndPassword(user.getEmail(), user.getPassword());
 
         if(isUser == null){
