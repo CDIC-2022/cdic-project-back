@@ -37,3 +37,6 @@ out/
 /.DS_STORE
 ### VS Code ###
 .vscode/
+demo-0.0.1-SNAPSHOT.jar
+cdci-key.pem
+/build
