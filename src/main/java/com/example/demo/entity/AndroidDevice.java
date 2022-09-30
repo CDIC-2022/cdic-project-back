@@ -11,14 +11,15 @@ import javax.persistence.*;
 @Getter
 @Entity
 @Data
-public class Device{
+public class AndroidDevice {
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    @Column(name = "id", nullable = false)
-    private Long id;
+    String macAddress;
 
-    String deviceIP;
+    boolean isConnected;
 
+    double currentWatt;
 
-
+    @OneToOne
+    @JoinColumn(name="arduino_mac_addr")
+    Arduino arduino;
 }
