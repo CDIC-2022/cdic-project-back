@@ -7,19 +7,31 @@ import org.hibernate.annotations.GenericGenerator;
 
 import javax.persistence.*;
 
-@Setter
-@Getter
 @Entity
 @Data
 public class AndroidDevice {
     @Id
     String macAddress;
 
-    boolean isConnected;
-
-    double currentWatt;
 
     @OneToOne
-    @JoinColumn(name="arduino_mac_addr")
+    @JoinColumn(name="arduino_mac_address")
     Arduino arduino;
+
+    public String getMacAddress() {
+        return macAddress;
+    }
+
+    public void setMacAddress(String macAddress) {
+        this.macAddress = macAddress;
+    }
+
+    public Arduino getArduino() {
+        return arduino;
+    }
+
+    public void setArduino(Arduino arduino) {
+        this.arduino = arduino;
+    }
+
 }
