@@ -32,7 +32,8 @@ public class ArduinoController {
 
     @ResponseBody
     @RequestMapping(value = "/dayWatt", method = RequestMethod.POST)
-    public double getDailyWatt(@RequestBody String androidDeviceMac){
+    public int getDailyWatt(@RequestBody HashMap<String, Object> map){
+        String androidDeviceMac = (String)map.get("MAC");
         // 예외처리 꼭!
         Arduino arduino;
         try{
@@ -42,13 +43,14 @@ public class ArduinoController {
         }
         double dailyWatt = arduino.getDailyWatt();
         System.out.printf("Day watt: %f",dailyWatt);
-        return dailyWatt;
+        return (int)dailyWatt;
     }
 
     @ResponseBody
     @RequestMapping(value = "/monthWatt", method = RequestMethod.POST)
-    public double getMonthWatt(@RequestBody String androidDeviceMac){
+    public int getMonthWatt(@RequestBody HashMap<String, Object> map){
         // 예외처리 꼭!
+        String androidDeviceMac = (String)map.get("MAC");
         Arduino arduino;
         try{
             arduino = searchArduinoByAndroidDevice(androidDeviceMac);
@@ -57,12 +59,13 @@ public class ArduinoController {
         }
         double monthWatt = arduino.getMonthWatt();
         System.out.printf("Month watt: %f",monthWatt);
-        return monthWatt;
+        return (int)monthWatt;
     }
 
     @ResponseBody
     @RequestMapping(value = "/monthPayment", method = RequestMethod.POST)
-    public double getMonthPayment(@RequestBody String androidDeviceMac){
+    public int getMonthPayment(@RequestBody HashMap<String, Object> map){
+        String androidDeviceMac = (String) map.get("MAC");
         // 예외처리 꼭!
         Arduino arduino;
         try{
@@ -72,12 +75,13 @@ public class ArduinoController {
         }
         double monthPay = arduino.getMonthPay();
         System.out.printf("Month watt: %f",monthPay);
-        return monthPay;
+        return (int)monthPay;
     }
 
     @ResponseBody
     @RequestMapping(value = "/expectWatt", method = RequestMethod.POST)
-    public double getExpectReduceW(@RequestBody String androidDeviceMac){
+    public int getExpectReduceW(@RequestBody HashMap<String, Object> map){
+        String androidDeviceMac = (String) map.get("MAC");
         // 예외처리 꼭!
         Arduino arduino;
         try{
@@ -87,12 +91,13 @@ public class ArduinoController {
         }
         double expectWatt = arduino.getExpectWatt();
         System.out.printf("Expect watt: %f",expectWatt);
-        return expectWatt;
+        return (int)expectWatt;
     }
 
     @ResponseBody
     @RequestMapping(value = "/restoreOnOff", method = RequestMethod.POST)
-    public int restoreOnOff(@RequestBody String androidDeviceMac){
+    public int restoreOnOff(@RequestBody HashMap<String, Object> map){
+        String androidDeviceMac = (String) map.get("MAC");
         Arduino arduino;
 
         try {
@@ -103,14 +108,17 @@ public class ArduinoController {
 
         if(arduino.isConnected() == true){
             arduino.setConnected(false);
-        }else arduino.setConnected(true);
-
+        }else {
+            arduino.setConnected(true);
+        }
+        arduinoRepository.save(arduino);
         return 1;
     }
 
     @ResponseBody
     @RequestMapping(value = "/checkOnOff", method = RequestMethod.POST)
-    public int checkOnOff(@RequestBody String androidDeviceMac){
+    public int checkOnOff(@RequestBody HashMap<String, Object> map){
+        String androidDeviceMac = (String) map.get("MAC");
         System.out.println(androidDeviceMac);
         Arduino arduino;
         try {
@@ -130,22 +138,17 @@ public class ArduinoController {
     public int receiveCondition(@RequestBody HashMap<String, Object> map){
 
         String arduinoMac = (String) map.get("MAC");
-        System.out.println(arduinoMac);
         Arduino arduino = arduinoRepository.findByMacAddress(arduinoMac).orElseThrow();
         // 실제로 5초마다 전송 받는 데이터가 daily watt는 아니지만 그냥 여기선 이걸로 초기화한다.
         double current = Double.parseDouble((String)map.get("current"));
         arduino.setDailyWatt(current);
+        System.out.println(map);
 
-        if(Boolean.parseBoolean((String) map.get("isConnected")) == true && arduino.isConnected() == false){
-            arduino.setConnected(false);
-            arduinoRepository.save(arduino);
+        if(Integer.parseInt((String) map.get("isConnected")) == 1 && arduino.isConnected() == false){
             return Response.DISCONNECT.getValue();
-        }else if(Boolean.parseBoolean((String) map.get("isConnected")) == false && arduino.isConnected() == true){
-            arduino.setConnected(true);
-            arduinoRepository.save(arduino);
+        }else if(Integer.parseInt((String) map.get("isConnected")) == 0 && arduino.isConnected() == true){
             return Response.CONNECT.getValue();
         }
-        arduinoRepository.save(arduino);
         return Response.NONE.getValue();
     }
 
@@ -157,25 +160,62 @@ public class ArduinoController {
         String arduinoIP = req.getHeader("X-FORWARDED-FOR");
         String arduinoMac = (String) map.get("MAC");
         Arduino arduino = arduinoRepository.findByMacAddress(arduinoMac).orElseThrow();
-        arduino.setDailyWatt(arduino.getDailyWatt() + (double)map.get("current"));
-        arduino.setMonthWatt(arduino.getMonthWatt() + (double)map.get("current"));
+        double oneMinuteCurrent = Double.parseDouble((String)map.get("current"));
 
         //todo expected watt calculate
-        //set as 0 (for test)
-        arduino.setExpectWatt(0);
-
-        if((boolean) map.get("isConnected") == true && arduino.isConnected() == false){
-            arduino.setConnected(false);
-            arduinoRepository.save(arduino);
-            return Response.DISCONNECT.getValue();
-        }else if((boolean) map.get("isConnected") == false && arduino.isConnected() == true){
-            arduino.setConnected(true);
-            arduinoRepository.save(arduino);
-            return Response.CONNECT.getValue();
-        }
+        updateWatt(arduino, calculateWatt(oneMinuteCurrent,1/60.0));
         arduinoRepository.save(arduino);
         return Response.NONE.getValue();
+    }
 
+    private void updateWatt(Arduino arduino, double oneMinuteWatt){
+        updateDailyWatt(arduino,oneMinuteWatt);
+        updateMonthlyWatt(arduino, oneMinuteWatt);
+        updateExpectedWatt(arduino);
+        updateMonthPay(arduino);
+
+        if(checkDayIsOver(arduino)){
+            resetArduinoForNextDay(arduino);
+        }
+        if(checkMonthIsOver(arduino)){
+            resetArduinoForNextMonth(arduino);
+        }
+    }
+    private double calculateWatt(double current, double timeHourUnit){
+        return current*timeHourUnit;
+    }
+
+    private boolean checkDayIsOver(Arduino arduino){
+        return arduino.getMinutesNum() >= 60*24;
+    }
+    private boolean checkMonthIsOver(Arduino arduino){
+        return arduino.getDayNum()>=30;
+    }
+
+    private void resetArduinoForNextDay(Arduino arduino){
+        arduino.setMinutesNum(0);
+    }
+
+    private void resetArduinoForNextMonth(Arduino arduino){
+        arduino.setDayNum(0);
+    }
+
+    private void updateDailyWatt(Arduino arduino, double oneMinuteWatt){
+        double dailyWatt = arduino.getDailyWatt();
+        arduino.setDailyWatt(dailyWatt+oneMinuteWatt);
+    }
+
+    private void updateMonthlyWatt(Arduino arduino, double oneMinuteWatt){
+        double monthlyWatt = arduino.getMonthWatt();
+        arduino.setMonthWatt(monthlyWatt+oneMinuteWatt);
+    }
+
+    private void updateExpectedWatt(Arduino arduino){
+        arduino.setExpectWatt(arduino.getMonthWatt()/ arduino.getDayNum()*30);
+    }
+
+    private void updateMonthPay(Arduino arduino){
+        arduino.setMonthPay(arduino.getMonthWatt()*0.073);
     }
 
 }

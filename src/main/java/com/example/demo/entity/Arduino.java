@@ -22,6 +22,26 @@ public class Arduino {
     double expectWatt;
     boolean isConnected;
 
+    int minutesNum;
+
+    int dayNum;
+
+    public int getDayNum() {
+        return dayNum;
+    }
+
+    public void setDayNum(int dayNum) {
+        this.dayNum = dayNum;
+    }
+
+    public int getMinutesNum() {
+        return minutesNum;
+    }
+
+    public void setMinutesNum(int minutesNum) {
+        this.minutesNum = minutesNum;
+    }
+
     public String getMacAddress() {
         return macAddress;
     }

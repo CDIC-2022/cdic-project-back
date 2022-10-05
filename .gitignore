@@ -40,3 +40,6 @@ out/
 demo-0.0.1-SNAPSHOT.jar
 cdci-key.pem
 /build
+/gradle/.DS_Store
+src/.DS_Store
+src/main/.DS_Store
